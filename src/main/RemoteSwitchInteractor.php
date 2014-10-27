@@ -2,21 +2,22 @@
 
 class RemoteSwitchInteractor 
 {
-    public function __construct($service, $repository)
+    public function __construct($tellstickService, $timeService, $repository)
     {
         $this->status = array();
-        $this->service = $service;
+        $this->tellstickService = $tellstickService;
+        $this->timeService = $timeService;
         $this->repository = $repository;
     }
 
     public function listSwitches()
     {
-        return $this->service->listSwitches();
+        return $this->tellstickService->listSwitches();
     }
 
     public function switchOn($id)
     {
-        $this->service->turnOnSwitch($id);
+        $this->tellstickService->turnOnSwitch($id);
 
         $this->status = array_merge($this->status, array($id => true));
     }
@@ -25,7 +26,7 @@ class RemoteSwitchInteractor
     {
         $this->switchOn($id);
 
-        $this->repository->storeOffJob($id, $this->formatForCron(time() + $minutes * 60));
+        $this->repository->storeOffJob($id, $this->formatForCron($this->timeService->currentTime() + $minutes * 60));
     }
 
     private function formatForCron($timestamp)
@@ -35,7 +36,7 @@ class RemoteSwitchInteractor
 
     public function switchOff($id)
     {
-        $this->service->turnOffSwitch($id);
+        $this->tellstickService->turnOffSwitch($id);
 
         $this->status = array_merge($this->status, array($id => false));
 
@@ -51,6 +52,12 @@ class RemoteSwitchInteractor
     public function hasSwitchOffJobFor($id)
     {
         return $this->repository->findJobOfTypeAndId('switchOff', $id) != null;
+    }
+
+    public function update()
+    {
+        $now = $this->timeService->currentTime();
+        $this->switchOff('Switch1');
     }
 }
 ?>

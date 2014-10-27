@@ -8,9 +8,10 @@ class RemoteSwitchInteractorTest extends PHPUnit_Framework_TestCase
      */
     public function createInteractor()
     {
+        $this->timeServiceMock = $this->getMock('TimeService', array('currentTime'));
         $this->repositoryMock = $this->getMock('Repository', array('storeOffJob', 'storeOnJob', 'removeJob', 'storeBlockWarmerJob', 'findJobOfTypeAndId'));
         $this->serviceMock = $this->getMock('Service', array('listSensors', 'readSensor', 'listSwitches', 'turnOnSwitch', 'turnOffSwitch'));
-        $this->interactor = new RemoteSwitchInteractor($this->serviceMock, $this->repositoryMock);
+        $this->interactor = new RemoteSwitchInteractor($this->serviceMock, $this->timeServiceMock, $this->repositoryMock);
     }
 
     public function test_shouldBeAbleListAllSwitches() 
@@ -84,18 +85,43 @@ class RemoteSwitchInteractorTest extends PHPUnit_Framework_TestCase
         $this->assertTrue($this->interactor->hasSwitchOffJobFor("Switch1"));
     }
 
-    public function test_givenAnTimedSwitch_shouldCansleJobWhenSwitchedOf()
+    public function test_givenATimedSwitch_shouldCansleJobWhenSwitchedOff()
     {
         $this->repositoryMock->expects($this->once())
                  ->method('removeJob')
                  ->with($this->equalTo('OffSwitch1'));
 
-        $this->repositoryMock->method('findJobOfTypeAndId')
-             ->will($this->onConsecutiveCalls('OffSwitch1', null));
+        $this->repositoryMock->expects($this->exactly(2))
+                 ->method('findJobOfTypeAndId')
+                 ->will($this->onConsecutiveCalls('OffSwitch1', null));
 
         $this->interactor->switchOnForMinutes("Switch1", 30);
 
         $this->interactor->switchOff("Switch1");
+
+        $this->assertFalse($this->interactor->isOn("Switch1"));
+        $this->assertFalse($this->interactor->hasSwitchOffJobFor("Switch1"));
+    }
+
+    public function test_givenATimedSwitch_shouldSwitchedOffWhenTimePasses()
+    {
+        $startTime = time();
+        $endTime = $startTime + 30 * 60;
+
+        $this->repositoryMock->expects($this->once())
+                 ->method('removeJob')
+                 ->with($this->equalTo('OffSwitch1'));
+
+        $this->repositoryMock->expects($this->exactly(2))
+                 ->method('findJobOfTypeAndId')
+                 ->will($this->onConsecutiveCalls('OffSwitch1', null));
+
+        $this->timeServiceMock->expects($this->exactly(2))
+                 ->method('currentTime')
+                 ->will($this->onConsecutiveCalls($startTime, $endTime));
+
+        $this->interactor->switchOnForMinutes("Switch1", 30);
+        $this->interactor->update();
 
         $this->assertFalse($this->interactor->isOn("Switch1"));
         $this->assertFalse($this->interactor->hasSwitchOffJobFor("Switch1"));
