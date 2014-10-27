@@ -8,9 +8,9 @@ class RemoteSwitchInteractorTest extends PHPUnit_Framework_TestCase
      */
     public function createInteractor()
     {
+        $this->repositoryMock = $this->getMock('Repository', array('storeOffJob', 'storeOnJob', 'removeJob', 'storeBlockWarmerJob', 'findJobOfTypeAndId'));
         $this->serviceMock = $this->getMock('Service', array('listSensors', 'readSensor', 'listSwitches', 'turnOnSwitch', 'turnOffSwitch'));
-        $this->interactor = new RemoteSwitchInteractor($this->serviceMock);
-        $this->assertNotNull($this->interactor);
+        $this->interactor = new RemoteSwitchInteractor($this->serviceMock, $this->repositoryMock);
     }
 
     public function test_shouldBeAbleListAllSwitches() 
@@ -57,6 +57,48 @@ class RemoteSwitchInteractorTest extends PHPUnit_Framework_TestCase
 
         $this->assertFalse($this->interactor->isOn("Switch1"));
         $this->assertTrue($this->interactor->isOn("Switch2"));
+    }
+
+    public function test_switchingOnATimedSwitch_shouldCreateSwitchOffJob()
+    {
+        date_default_timezone_set('UTC');
+
+        $this->serviceMock->expects($this->once())
+                 ->method('turnOnSwitch')
+                 ->with($this->equalTo('Switch1'));
+
+        $this->repositoryMock->expects($this->once())
+                 ->method('storeOffJob')
+                 ->with(
+                    $this->equalTo('Switch1'), 
+                    $this->equalTo(date("i H d m Y", mktime(date('H'), date('i') + 30, 0, date('m'), date('d'), date('Y'))))
+                    );
+
+        $this->repositoryMock->method('findJobOfTypeAndId')
+                 ->willReturn('OffSwitch1');
+
+
+        $this->interactor->switchOnForMinutes("Switch1", 30);
+
+        $this->assertTrue($this->interactor->isOn("Switch1"));
+        $this->assertTrue($this->interactor->hasSwitchOffJobFor("Switch1"));
+    }
+
+    public function test_givenAnTimedSwitch_shouldCansleJobWhenSwitchedOf()
+    {
+        $this->repositoryMock->expects($this->once())
+                 ->method('removeJob')
+                 ->with($this->equalTo('OffSwitch1'));
+
+        $this->repositoryMock->method('findJobOfTypeAndId')
+             ->will($this->onConsecutiveCalls('OffSwitch1', null));
+
+        $this->interactor->switchOnForMinutes("Switch1", 30);
+
+        $this->interactor->switchOff("Switch1");
+
+        $this->assertFalse($this->interactor->isOn("Switch1"));
+        $this->assertFalse($this->interactor->hasSwitchOffJobFor("Switch1"));
     }
 }
 ?>

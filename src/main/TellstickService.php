@@ -30,7 +30,7 @@ class TellstickService
 
     public function listSwitches()
     {
-        $response = $this->consumer->sendRequest(constant('REQUEST_URI').'/switches/list', array(), 'GET');
+        $response = $this->consumer->sendRequest(constant('REQUEST_URI').'/devices/list', array(), 'GET');
         return json_decode($response->getBody());
     }
 
@@ -38,19 +38,17 @@ class TellstickService
     {
         $params = array(
             'id' => $id,
-            'mode' => constant(TELLSTICK_TURNON),
         );
-        $response = $this->consumer->sendRequest(constant('REQUEST_URI').'/switches/mode', $params, 'POST');
-        return json_decode($response->getBody());
+        $response = $this->consumer->sendRequest(constant('REQUEST_URI').'/device/turnOn', $params, 'POST');
+        return json_decode($response->getBody())->status == 'success';
     }
 
     public function turnOffSwitch($id)
     {
         $params = array(
             'id' => $id,
-            'mode' => constant(TELLSTICK_TURNOFF),
         );
-        $response = $this->consumer->sendRequest(constant('REQUEST_URI').'/switches/mode', $params, 'POST');
-        return json_decode($response->getBody());
+        $response = $this->consumer->sendRequest(constant('REQUEST_URI').'/switches/turnOff', $params, 'POST');
+        return json_decode($response->getBody())->status == 'success';
     }
 }
